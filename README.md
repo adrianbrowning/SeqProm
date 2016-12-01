@@ -3,11 +3,11 @@ Repo for Sequential Promises project
 
 ## Installation
 
-  `npm install seqprom --save`
+  `npm install seq-prom --save`
 
 ## Usage
 
-    const SeqProm = require("./index.js");
+    const SeqProm = require("seq-prom");
     
     let seqProm = SeqProm({
       list: [1, 2, 3],

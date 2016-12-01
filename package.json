@@ -1,5 +1,5 @@
 {
-  "name": "seqprom",
+  "name": "seq-prom",
   "version": "1.0.0",
   "description": "A small library to allow for sequential operations on an array using Promises",
   "main": "index.js",
