@@ -19,7 +19,7 @@ Repo for Sequential Promises project
 
 ## Usage
 
-###Basic Example
+### Basic Example
 
     const SeqProm = require("seq-prom");
     
@@ -45,7 +45,7 @@ Repo for Sequential Promises project
     
     seqProm.start();
     
-###Other Options
+### Other Options
        
     const SeqProm = require("seq-prom");
     
@@ -79,9 +79,9 @@ Repo for Sequential Promises project
     });
    
 
-##Functions
+## Functions
 
-###cb
+### cb
 
 | Argument | Description                                       |
 |----------|---------------------------------------------------|
@@ -92,21 +92,21 @@ Repo for Sequential Promises project
 | threadId | If in stream mode, then this will be the threadId |
       
 
-###errorCB
+### errorCB
 
 | Argument | Description                                                           |
 |----------|-----------------------------------------------------------------------|
 | item     | Item from the list                                                    |
 | reason   | Reason for the error, either from the reject method or a caught error |
 
-###finalCB
+### finalCB
 
 | Argument  | Description                                       |
 |-----------|---------------------------------------------------|
 | error     | List of errors that have occured                  |
 | response  | List of items passed back to the resolve function |
       
-###Promise Response
+### Promise Response
 
     const SeqProm = require("seq-prom");
     
