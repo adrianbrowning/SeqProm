@@ -1,6 +1,6 @@
 {
   "name": "seq-prom",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A small library to allow for sequential operations on an array using Promises",
   "main": "index.js",
   "scripts": {
@@ -22,7 +22,7 @@
   "homepage": "https://github.com/adrianbrowning/SeqProm#readme",
   "devDependencies": {
     "chai": "^3.5.0",
-    "mocha": "^3.2.0"
+    "mocha": "^5.0.1"
   },
   "dependencies": {}
 }

@@ -139,6 +139,7 @@ Repo for Sequential Promises project
 
 ## Release History
 
+* 1.1.1 Package update
 * 1.1.0 
 	* Updates to allow passage of data
 	* Added more tests 	
