@@ -1,26 +1,29 @@
 /**
- * Created by adrianbrowning on 10/11/2016.
+ * Created by adrianbrowning on 15/02/2018.
  */
-const SeqProm = require("./index.js");
+const SeqProm = require("seq-prom");
 
-let seqProm = SeqProm({
-  list: [1, 2, 3],
+SeqProm({
+  list: [1, 2, 3, 4],
+  autoStart: true,
+  useStream : true,
+  batchSize : 2,
   cb  (item, resolve, reject) {
     console.log(`Item [${item}] called!`);
     setTimeout(function () {
       if (item === 3) {
         return reject("Not sure about this!");
       } else {
-        return resolve();
+        return resolve(item);
       }
     }, item * 1000);
   },
   errorCB (item, reason) {
     console.error(`Item [${item}] failed with error: ${reason}`);
   },
-  finalCB (){
+  finalCB (errors, responses){
     console.log("All done!");
+    console.dir(errors);
+    console.dir(responses);
   }
 });
-
-seqProm.start();

@@ -9,138 +9,176 @@ const SeqPromise = function(options) {
 
 // prototype holds methods (to save memory space)
 SeqPromise.prototype = {
-  stop : function() {this._gstopped = !0;},
-  start : function() {this._gprom_res();return this;}
+  stop : function() {this._stopped = !0;},
+  start: function() {
+    this._globalPromiseResolver();
+    return this;
+  },
 };
+
+function isTrue(value) {
+  return (value === true) || (value || '').toLowerCase() === 'true';
+}
+
+function typeOf(e) {
+  return ({}).toString.call(e).match(/\s([a-zA-Z]+)/)[1].toLowerCase();
+}
 
 // the actual object is created here, allowing us to 'new' an object without calling 'new'
 SeqPromise.init = function(options) {
-  
-  const self = this;
-  let _glist      = options.list.slice(),//Create new array
-      _gcb        = options.cb || function () {},
-      _gfinalCB   = options.finalCB || function () {},
-      _gcontext   = options.context,
-      _gerrorCB   = options.errorCB || function () {},
-      _gbatchSize = options.batchSize || 1,
-      _guseStream = options.useStream === true || (options.useStream || "").toLowerCase() === "true",
-      _gmaster_promise;
-  self._gprom_res  = null;
-  self._gstopped   = false;
-  
-  if (_gcontext) {
-    _gcb = _gcb.bind(_gcontext);
-    _gfinalCB = _gfinalCB.bind(_gcontext);
-    _gerrorCB = _gerrorCB.bind(_gcontext);
+
+  const self          = this,
+  blankFunction = function(){};
+
+  if (typeOf(options.list) !== 'array') {
+    throw new Error(`Expecting list to be type Array, found type ${typeOf(options.list)}`);
+  }
+
+  if (typeOf(options.cb) !== 'function') {
+    throw new Error(`Expecting cb to be type Function, found type ${typeOf(options.cb)}`);
+  }
+
+  options.list = options.list.slice();
+
+  options.finalCB = options.finalCB || blankFunction;
+  options.errorCB = options.errorCB || blankFunction;
+  options.batchSize = options.batchSize || 1;
+  options.useStream = isTrue(options.useStream);
+
+  self.promise = null;
+  self._globalPromiseResolver = null;
+  self._stopped = false;
+  self._errors = [];
+  self._responses = [];
+
+  if (options.context) {
+    options.cb = options.cb.bind(options.context);
+    options.finalCB = options.finalCB.bind(options.context);
+    options.errorCB = options.errorCB.bind(options.context);
   }
 
   function createMasterPromise() {
     let promise,
-        prom_res = null;
+        resolver = null;
 
-    promise = new Promise(resolve => { prom_res = resolve;});
+    promise = new Promise(resolve => { resolver = resolve;});
     return {
-      prom_res,
-      promise
-    }
+      resolver,
+      promise,
+    };
   }
 
-  let prom =  createMasterPromise();
-  _gmaster_promise = prom.promise;
-  self._gprom_res = prom.prom_res;
-  self.id = prom.id;
+  function errorCallBack(item, reason) {
+    self._errors.push({item, reason});
+    options.errorCB(item, reason);
+  }
 
-  const secondary = function (item) {
-    return new Promise(function (resolve, reject) {
-      if (typeof item == "function") {
-        item(resolve, reject, self);
+  function trackResponse(response) {
+    self._responses.push(response);
+  }
+
+  function secondary(item) {
+    return new Promise(function(resolve, reject) {
+      if (typeof item === 'function') {
+        return item(resolve, reject, self);
       } else {
-        _gcb(item, resolve, reject, self);
+        return options.cb(item, resolve, reject, self);
       }
-    }).catch(function (reason) {
-      _gerrorCB(item, reason)
-    });
-  };
+    })
+        .then(trackResponse)
+        .catch(errorCallBack.bind(null, item));
+  }
 
-  if (_gbatchSize === 1) {
-    _glist.push(_gfinalCB);
-    _glist.reduce(function (sequence, item) {
+  let prom = createMasterPromise();
+  self.promise = prom.promise;
+  self._globalPromiseResolver = prom.resolver;
+
+  if (options.batchSize === 1) {
+    // options.list.push();
+    self.promise = options.list.reduce(function(sequence, item) {
       // Add these actions to the end of the sequence
-      return sequence.then(function () {
-        if (self._gstopped) return;
+      return sequence.then(function() {
+        if (self._stopped) return;
         return secondary(item);
       });
-    }, _gmaster_promise);
+    }, self.promise)
+        .then(options.finalCB.bind(options.context || null, self._errors, self._responses))
+        .then(_=>[self._errors, self._responses]);
   }
   else {
-    if (_gbatchSize === -1) {
-      _gbatchSize = _glist.length;
+    if (options.batchSize === -1) {
+      options.batchSize = options.list.length;
     }
-    const createAllPromise = function (items) {
+    const createAllPromise = function(items) {
       let pList = [];
       for (let i = 0; i < items.length; i++) {
-        pList.push(secondary(items[i]).catch(function (reason) {
-          //Not sure this is actually called!
-          console.warn(reason);
-        }));
+        pList.push(secondary(items[i]));
       }
       return Promise.all(pList);
     };
 
-    const nextBatch = function (_start, _size) {
+    const nextBatch = function(_start, _size) {
       _start = _start || 0;
-      _size = _size || _gbatchSize;
-      if (self._gstopped) return;
+      _size = _size || options.batchSize;
+      if (self._stopped) return;
       return new Promise(res => {
-        return createAllPromise(_glist.splice(_start, _size)).then(function () {
-          console.log("Batch Done!");
+        return createAllPromise(options.list.splice(_start, _size)).then(function() {
           res();
         });
       });
     };
+
     let loops;
-    if (!_guseStream) {
-      loops = Math.ceil(_glist.length / _gbatchSize);
+    if (!options.useStream) {
+      loops = Math.ceil(options.list.length / options.batchSize);
       for (let i = 0; i < loops; i++) {
-        _gmaster_promise = _gmaster_promise.then(nextBatch);
+        self.promise = self.promise.then(nextBatch);
       }
-      _gmaster_promise.then(_gfinalCB);
+      self.promise = self.promise
+          .then(options.finalCB.bind(options.context || null, self._errors, self._responses))
+          .then(_=>[self._errors, self._responses]);
     } else {
+      self.promise = self.promise
+          .then(function() {
+            const promArray = [];
 
-      let start = 0;
-      const newSeqPromWrapper = function (start, idx, loops) {
-        return new Promise(lRes => {
-          SeqPromise({
-            // context: _gcontext,
-            list   : _glist.slice(start, loops * (idx + 1)),
-            cb     : _gcb,
-            finalCB: function (a, b, c) {
-              console.log(`Stream done! ${c.id}`);
-              lRes();
-            },
-            errorCB: _gerrorCB
+            const genPromChain = function(list, threadId) {
+              return function(resolve) {
+                return list.reduce((promise, item) => promise
+                        .then(function() {
+                          return new Promise((resolve, reject) => {
+                            if (self._stopped) return;
+                            return options.cb(item, resolve, reject, self, threadId);
+                          });
+                        })
+                        .then(trackResponse)
+                        .catch(errorCallBack.bind(null, item)),
+                    Promise.resolve())
+                    .then(resolve);
+              };
+            };
 
-          }).start();
-        })
-      };
+            const threads = [];
+            options.list.forEach((item, idx) => {
+              const pos = idx % options.batchSize;
+              threads[pos] = threads[pos] || [];
+              threads[pos].push(item);
+            });
 
-      _gmaster_promise
-        .then(function () {
-          const loops    = Math.ceil(_glist.length / _gbatchSize),
-                _masters = [];
+            for (let i = 0; i < options.batchSize; i++) {
+              promArray.push(new Promise(genPromChain(threads[i], i)));
+            }
 
-          for (let i = 0; i < _gbatchSize; i++) {
-            console.log("New sub master created!");
-            _masters.push(newSeqPromWrapper(start, i, loops));
-
-            start = (i + 1) * loops;
-          }
-          return new Promise(res => {
-            Promise.all(_masters).then(res);
+            return Promise.all(promArray);
           })
-        })
-        .then(_gfinalCB);
+          .then(options.finalCB.bind(options.context || null, self._errors, self._responses))
+          .then(_=>[self._errors, self._responses]);
     }
+  }
+
+  if (isTrue(options.autoStart)) {
+    this._globalPromiseResolver();
+    return this;
   }
 };
 
