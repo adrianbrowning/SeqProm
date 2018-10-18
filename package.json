@@ -1,10 +1,11 @@
 {
   "name": "seq-prom",
-  "version": "1.1.1",
+  "version": "2.0.1",
   "description": "A small library to allow for sequential operations on an array using Promises",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "mocha --reporter spec"
+    "test": "jest src/index.es6.js",
+    "build": "npx babel src --out-dir browser && mv browser/index.es6.js browser/index.js && cp src/index.es6.js dist/index.js"
   },
   "repository": {
     "type": "git",
@@ -21,8 +22,11 @@
   },
   "homepage": "https://github.com/adrianbrowning/SeqProm#readme",
   "devDependencies": {
-    "chai": "^3.5.0",
-    "mocha": "^5.0.1"
+    "@babel/cli": "^7.1.2",
+    "@babel/core": "^7.1.2",
+    "@babel/polyfill": "^7.0.0",
+    "@babel/preset-env": "^7.1.0",
+    "jest": "^23.6.0"
   },
   "dependencies": {}
 }

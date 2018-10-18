@@ -1,7 +1,7 @@
 /**
  * Created by adrianbrowning on 10/11/2016.
  */
-const SeqProm = require("./index.js");
+const SeqProm = require('seq-prom');
 
 let seqProm = SeqProm({
   list: [1, 2, 3],
