@@ -30,11 +30,7 @@ function buildBatchQueue(self) {
   
   function secondary(item) {
     return new Promise(function (resolve, reject) {
-      if (typeof item === 'function') {
-        return item(resolve, reject, self);
-      } else {
         return self.cb(item, resolve, reject, self);
-      }
     })
       .then(trackResponse.bind(self))
       .catch(errorCallBack(self, item));
@@ -143,8 +139,8 @@ class SeqPromiseClass {
     if (typeOf(options.list) !== 'array') {
       throw new Error(`Expecting list to be type Array, found type ${typeOf(options.list)}`);
     }
-    
-    if (typeOf(options.cb) !== 'function') {
+  
+    if (!(typeOf(options.cb) === 'function' || typeOf(options.cb) === 'asyncfunction')) {
       throw new Error(`Expecting cb to be type Function, found type ${typeOf(options.cb)}`);
     }
     

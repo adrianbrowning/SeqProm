@@ -30,11 +30,7 @@ function buildBatchQueue(self) {
   
   function secondary(item) {
     return new Promise(function (resolve, reject) {
-      if (typeof item === 'function') {
-        return item(resolve, reject, self);
-      } else {
         return self.cb(item, resolve, reject, self);
-      }
     })
       .then(trackResponse.bind(self))
       .catch(errorCallBack(self, item));
@@ -115,10 +111,10 @@ class SeqPromiseClass {
    * SeqPromise the actual object is created here, allowing us to 'new' an object without calling 'new'
    * @param {Object} options - The options for setting the chain
    * @param {number} options.poolSize - The size of "simulated" thread pool
-   * @param {number} options.maxRetry - The number of times to retry a failed action
    * @param {boolean} options.autoStart - Will start the processing as soon as initialisation is complete
    * @param {*[]} options.list - The list of items to iterate over asynchronously
    * @param {boolean} options.useBatch - Switches from Stream mode, to batch
+   * @param {number} options.batchSize - The size of each batch
    * @param {Object} options.context - Context to run functions in
    * @param {cb} options.cb - A function that returns a promise
    * @param {finalCB} options.finalCB - A function that that will be called once all done
@@ -126,20 +122,25 @@ class SeqPromiseClass {
    *
    * @callback cb
    * @param {*} Item - Item from the list
+   * @param {*} Resolve - Resolve function for successful call
+   * @param {*} Reject - Reject function for failed call
+   * @param {*} Self - Item from the list
    *
    * @callback finalCB
-   * @param {*[]} errorList - List of failed items
+   * @param {*[]} Errors - List of failed items
+   * @param {*[]} Responses - List of completed items
    *
    * @callback errorCB
-   * @param {*[]} errorList - List of failed items
+   * @param {*} Item - Item that failed
+   * @param {*} Reason - Reason for failure, passed from reject
    */
   
   constructor(options) {
     if (typeOf(options.list) !== 'array') {
       throw new Error(`Expecting list to be type Array, found type ${typeOf(options.list)}`);
     }
-    
-    if (typeOf(options.cb) !== 'function') {
+  
+    if (!(typeOf(options.cb) === 'function' || typeOf(options.cb) === 'asyncfunction')) {
       throw new Error(`Expecting cb to be type Function, found type ${typeOf(options.cb)}`);
     }
     
