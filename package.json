@@ -22,11 +22,11 @@
   },
   "homepage": "https://github.com/adrianbrowning/SeqProm#readme",
   "devDependencies": {
-    "@babel/cli": "^7.1.2",
-    "@babel/core": "^7.1.2",
-    "@babel/polyfill": "^7.0.0",
-    "@babel/preset-env": "^7.1.0",
-    "jest": "^23.6.0"
+    "@babel/cli": "^7.8.4",
+    "@babel/core": "^7.9.0",
+    "@babel/polyfill": "^7.8.7",
+    "@babel/preset-env": "^7.9.0",
+    "jest": "^25.2.7"
   },
   "dependencies": {}
 }
