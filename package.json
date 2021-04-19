@@ -4,7 +4,7 @@
   "description": "A small library to allow for sequential operations on an array using Promises",
   "main": "dist/index.js",
   "scripts": {
-    "test": "jest src/index.es6.js",
+    "test": "jest test/*.js",
     "build": "npx babel src --out-dir browser && mv browser/index.es6.js browser/index.js && cp src/index.es6.js dist/index.js"
   },
   "repository": {
@@ -22,11 +22,11 @@
   },
   "homepage": "https://github.com/adrianbrowning/SeqProm#readme",
   "devDependencies": {
-    "@babel/cli": "^7.8.4",
-    "@babel/core": "^7.9.0",
-    "@babel/polyfill": "^7.8.7",
-    "@babel/preset-env": "^7.9.0",
-    "jest": "^25.2.7"
+    "@babel/cli": "^7.13.14",
+    "@babel/core": "^7.13.15",
+    "@babel/polyfill": "^7.12.1",
+    "@babel/preset-env": "^7.13.15",
+    "jest": "^26.6.3"
   },
   "dependencies": {}
 }

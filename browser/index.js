@@ -1,17 +1,5 @@
 "use strict";
 
-require("core-js/modules/web.dom.iterable");
-
-require("core-js/modules/es6.array.iterator");
-
-require("core-js/modules/es6.string.iterator");
-
-require("core-js/modules/es6.promise");
-
-require("core-js/modules/es6.regexp.to-string");
-
-require("core-js/modules/es6.regexp.match");
-
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
@@ -128,9 +116,7 @@ function createMasterPromise() {
   };
 }
 
-var SeqPromiseClass =
-/*#__PURE__*/
-function () {
+var SeqPromiseClass = /*#__PURE__*/function () {
   /**
    * SeqPromise the actual object is created here, allowing us to 'new' an object without calling 'new'
    * @param {Object} options - The options for setting the chain
