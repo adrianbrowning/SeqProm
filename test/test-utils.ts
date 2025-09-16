@@ -8,12 +8,12 @@ import assert from 'node:assert';
  */
 export function mockFn<T extends (...args: any[]) => any>(impl?: T): T & { mock: { calls: any[][] }, mockReset: () => void } {
   const calls: any[][] = [];
-  
-  const fn = impl ? 
+
+  const fn = impl ?
     ((...args: any[]) => {
       calls.push(args);
       return impl(...args);
-    }) : 
+    }) :
     ((...args: any[]) => {
       calls.push(args);
       return undefined;
@@ -21,7 +21,7 @@ export function mockFn<T extends (...args: any[]) => any>(impl?: T): T & { mock:
 
   (fn as any).mock = { calls };
   (fn as any).mockReset = () => { calls.length = 0; };
-  
+
   return fn as any;
 }
 
@@ -30,45 +30,45 @@ export function mockFn<T extends (...args: any[]) => any>(impl?: T): T & { mock:
  */
 export function expect<T>(actual: T) {
   return {
-    toBe: (expected: T) => 
+    toBe: (expected: T) =>
       assert.strictEqual(actual, expected),
-      
-    toEqual: (expected: T) => 
+
+    toEqual: (expected: T) =>
       assert.deepStrictEqual(actual, expected),
-      
+
     toHaveBeenCalledTimes: (times: number) => {
       const mock = actual as unknown as { mock: { calls: any[][] } };
-      assert.strictEqual(mock.mock.calls.length, times, 
+      assert.strictEqual(mock.mock.calls.length, times,
         `Expected mock to be called ${times} times, but was called ${mock.mock.calls.length} times`);
     },
-    
-    toBeTruthy: () => 
+
+    toBeTruthy: () =>
       assert.ok(actual, `Expected ${actual} to be truthy`),
-      
-    toBeFalsy: () => 
+
+    toBeFalsy: () =>
       assert.ok(!actual, `Expected ${actual} to be falsy`),
-      
-    toBeGreaterThan: (expected: number) => 
-      assert.ok((actual as unknown as number) > expected, 
+
+    toBeGreaterThan: (expected: number) =>
+      assert.ok((actual as unknown as number) > expected,
         `Expected ${actual} to be greater than ${expected}`),
-        
-    toBeLessThan: (expected: number) => 
-      assert.ok((actual as unknown as number) < expected, 
+
+    toBeLessThan: (expected: number) =>
+      assert.ok((actual as unknown as number) < expected,
         `Expected ${actual} to be less than ${expected}`),
-        
-    toContain: (item: any) => 
-      assert.ok((actual as unknown as any[]).includes(item), 
+
+    toContain: (item: any) =>
+      assert.ok((actual as unknown as any[]).includes(item),
         `Expected array to contain ${item}`),
-        
-    toHaveLength: (length: number) => 
-      assert.strictEqual((actual as unknown as any[]).length, length, 
+
+    toHaveLength: (length: number) =>
+      assert.strictEqual((actual as unknown as any[]).length, length,
         `Expected array to have length ${length}`),
-        
-    toMatchObject: (obj: Record<string, any>) => 
-      assert.ok(Object.entries(obj).every(([key, value]) => 
-        (actual as unknown as Record<string, any>)[key] === value), 
+
+    toMatchObject: (obj: Record<string, any>) =>
+      assert.ok(Object.entries(obj).every(([key, value]) =>
+        (actual as unknown as Record<string, any>)[key] === value),
         `Expected object to match ${JSON.stringify(obj)}`),
-        
+
     toThrow: (error?: string | RegExp | Error) => {
       try {
         (actual as unknown as Function)();
@@ -76,27 +76,33 @@ export function expect<T>(actual: T) {
       } catch (e) {
         if (!error) return;
         if (typeof error === 'string') {
-          assert.ok((e as Error).message.includes(error), 
+          assert.ok((e as Error).message.includes(error),
             `Expected error message to include "${error}"`);
         } else if (error instanceof RegExp) {
-          assert.ok(error.test((e as Error).message), 
+          assert.ok(error.test((e as Error).message),
             `Expected error message to match ${error}`);
         } else {
           assert.deepStrictEqual(e, error);
         }
       }
     },
-    
+
     arrayContaining: (expected: any[]) => {
       const actualArray = actual as unknown as any[];
       expected.forEach(item => {
-        const matchItem = actualArray.some(actualItem => 
+        const matchItem = actualArray.some(actualItem =>
           JSON.stringify(actualItem) === JSON.stringify(item)
         );
         assert.ok(matchItem, `Expected array to contain ${JSON.stringify(item)}`);
       });
     }
   };
+}
+
+export function typeOf(e: unknown) {
+    if (e === null) return 'null';
+    //@ts-expect-error not null anymore
+    return ({}).toString.call(e).match(/\s([a-zA-Z]+)/)[1].toLowerCase();
 }
 
 /**
@@ -114,11 +120,11 @@ export async function timeExecution(fn: () => Promise<any>): Promise<number> {
 export function createDeferred<T = any>() {
   let resolve: (value: T) => void = () => {};
   let reject: (reason?: any) => void = () => {};
-  
+
   const promise = new Promise<T>((res, rej) => {
     resolve = res;
     reject = rej;
   });
-  
+
   return { promise, resolve, reject };
 }

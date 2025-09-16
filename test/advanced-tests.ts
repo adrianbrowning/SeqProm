@@ -3,8 +3,8 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import SeqProm from '../src/index';
-import { mockFn, expect, timeExecution } from './test-utils';
+import SeqProm from '../src/index.ts';
+import {mockFn, expect, timeExecution, typeOf} from './test-utils.ts';
 
 describe('SeqProm Advanced Tests', async () => {
   // Type Safety Tests
@@ -89,8 +89,10 @@ describe('SeqProm Advanced Tests', async () => {
         finalCB(errors, responses) {
           expect(errorCB).toHaveBeenCalledTimes(1);
           expect(errors.length).toBe(1);
-          expect(errors[0].reason).toEqual('Intentional error');
-            expect(responses).toEqual([1, 3]);
+          expect(errors[0].item).toEqual(2);
+          expect(typeOf(errors[0].reason)).toEqual("error");
+          expect((errors[0].reason as Error).message).toEqual('Intentional error');
+          expect(responses).toEqual([1, 3]);
           done();
         }
       }).start();

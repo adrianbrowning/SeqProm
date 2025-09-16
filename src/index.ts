@@ -4,7 +4,7 @@
 
 type ItemError<T> = {
     item: T,
-    reason: string
+    reason: string | Error
 };
 
 

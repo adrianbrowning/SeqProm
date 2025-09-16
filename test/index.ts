@@ -2,7 +2,7 @@
  * SeqProm tests using Node.js native test runner
  */
 import { describe, it } from 'node:test';
-import SeqProm from '../src/index';
+import SeqProm from '../src/index.ts';
 import { mockFn, expect } from './test-utils.ts';
 
 describe('SeqProm Basic Tests', async () => {
