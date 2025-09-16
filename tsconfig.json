@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "lib": ["es2015", "dom"],
     "sourceMap": true,
-    "rootDir": "./src",
+//    "rootDir": ["./src", "./test"],
     "strictBindCallApply": true,
     "strictBuiltinIteratorReturn": true,
     "strictFunctionTypes": true,
@@ -23,8 +23,9 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
-    "erasableSyntaxOnly": true
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "test/**/*"],
   "exclude": ["node_modules", "test", "dist", "example", "browser"]
 }

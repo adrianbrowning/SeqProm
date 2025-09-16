@@ -1,11 +1,17 @@
 {
   "name": "seq-prom",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "A small library to allow for sequential operations on an array using Promises",
-  "main": "dist/index.js",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
+  "type": "module",
   "scripts": {
-    "test": "jest test/*.js",
-    "build": "npx babel src --out-dir browser && mv browser/index.es6.js browser/index.js && cp src/index.es6.js dist/index.js"
+    "test": "node --test test/*.ts",
+    "test:basic": "node --test test/index.ts",
+    "test:advanced": "node --test test/advanced-tests.ts",
+    "test:coverage": "node --test --experimental-test-coverage test/*.ts",
+    "build": "zshy",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
@@ -13,7 +19,7 @@
   },
   "keywords": [
     "Promises",
-    "Sequential"
+    "Concurrent"
   ],
   "author": "Adrian Browning",
   "license": "ISC",
@@ -21,12 +27,24 @@
     "url": "https://github.com/adrianbrowning/SeqProm/issues"
   },
   "homepage": "https://github.com/adrianbrowning/SeqProm#readme",
-  "devDependencies": {
-    "@babel/cli": "^7.13.14",
-    "@babel/core": "^7.13.15",
-    "@babel/polyfill": "^7.12.1",
-    "@babel/preset-env": "^7.13.15",
-    "jest": "^26.6.3"
+  "dependencies": {
+    "zod": "^4.1.8"
   },
-  "dependencies": {}
+  "devDependencies": {
+    "@types/node": "^22.18.4",
+    "typescript": "5.9.2",
+    "zshy": "^0.4.2"
+  },
+  "zshy": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.cts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  }
 }

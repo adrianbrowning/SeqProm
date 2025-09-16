@@ -11,7 +11,7 @@ type ItemError<T> = {
 type SeqPromOptionsSchema<T, RT = any> = {
     list: ReadonlyArray<T>;
     cb: (item: T, resolve: Resolver, reject: Rejecter, self?: SeqPromiseClass) => RT;
-    finalCB?: (items: ReadonlyArray<RT>) => any;
+    finalCB?: (errors: Array<ItemError<T>>, items: ReadonlyArray<RT>) => any;
     errorCB?: (item: T, reason: string) => void;
     useBatch?: boolean;
     autoStart?: boolean;
@@ -22,12 +22,6 @@ type SeqPromOptionsSchema<T, RT = any> = {
 
 type Resolver = (value?: unknown) => void;
 type Rejecter = (reason?: any) => void;
-
-type CallbackFunction = (item: any, resolve: Resolver, reject: Rejecter, self?: SeqPromiseClass) => any;
-type ErrorCallback = (item: any, reason: any) => any;
-type FinalCallback<T> = (errors: Array<ItemError<T>>, responses: Array<any>) => any;
-
-const blankFunction: FinalCallback<any> = function (): void {};
 
 function isTrue(value: boolean | string | undefined) {
     return (value === true) || (value || '').toLowerCase() === 'true';
@@ -43,13 +37,15 @@ function trackResponse(this: SeqPromiseClass, response: any): void {
     this._responses.push(response);
 }
 
-function errorCallBack(self: SeqPromiseClass, item: any): (reason: any) => void {
+function errorCallBack<ItemT>(self: SeqPromiseClass, item: ItemT): (reason: any) => void {
     return function (reason: any): void {
         self._errors.push({
             item,
             reason
         });
-        self.errorCB(item, reason);
+        if (self.errorCB) {
+            self.errorCB(item, reason);
+        }
     };
 }
 
@@ -86,7 +82,9 @@ function buildBatchQueue(self: SeqPromiseClass): void {
         self.promise = self.promise.then(nextBatch);
     }
     self.promise = self.promise
-        .then(() => self.finalCB(self._errors, self._responses))
+        .then(() => {
+            if(self.finalCB) self.finalCB(self._errors, self._responses)
+        })
         .then(() => [self._errors, self._responses]);
 }
 
@@ -118,7 +116,9 @@ function buildPoolQueue(self: SeqPromiseClass) {
 
                 return Promise.all(pool);
             })
-            .then(() => self.finalCB(self._errors, self._responses))
+            .then(() => {
+                if(self.finalCB) self.finalCB(self._errors, self._responses)
+            })
             .then(() => [self._errors, self._responses]);
 }
 
@@ -142,9 +142,9 @@ function createMasterPromise(): MasterPromise {
 
 class SeqPromiseClass<ItemType = any> {
     list: Array<ItemType>;
-    cb: CallbackFunction;
-    finalCB: FinalCallback<ItemType>;
-    errorCB: ErrorCallback;
+    cb: SeqPromOptionsSchema<ItemType>["cb"];
+    finalCB: SeqPromOptionsSchema<ItemType>["finalCB"];
+    errorCB: SeqPromOptionsSchema<ItemType>["errorCB"];
     useBatch: boolean;
     batchSize: number;
     poolSize: number;
@@ -194,8 +194,8 @@ class SeqPromiseClass<ItemType = any> {
 
         this.list = options.list.slice() as Array<ItemType>;
         this.cb = options.cb;
-        this.finalCB = options.finalCB || blankFunction;
-        this.errorCB = options.errorCB || blankFunction;
+        this.finalCB = options.finalCB || function (): void {};
+        this.errorCB = options.errorCB || function (): void {};
         this.useBatch = isTrue(options.useBatch);
         this.batchSize = options.batchSize || 1;
         this.poolSize = options.poolSize || 1;
@@ -210,10 +210,10 @@ class SeqPromiseClass<ItemType = any> {
             this.cb = options.cb.bind(options.context);
             this.finalCB = options.finalCB
                 ? options.finalCB.bind(options.context)
-                : blankFunction;
+                : function (): void {};
             this.errorCB = options.errorCB
                 ? options.errorCB.bind(options.context)
-                : blankFunction;
+                : function (): void {};
         }
 
         if (options.poolSize && options.poolSize >= options.list.length) {
