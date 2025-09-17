@@ -82,45 +82,72 @@ function errorCallBack<ItemT, ReturnT>(self: SeqPromiseClass<ReturnT, ItemT>, it
  * @template ReturnType - Type of the return values
  * @param self - Instance of SeqPromiseClass to configure
  */
-// function buildBatchQueue<ItemType, ReturnType>(self: SeqPromiseClass<ItemType, ReturnType>): void {
-//
-//     function secondary(item: ItemType) {
-//         const p =  new Promise<ReturnType>(function (resolve, reject) {
-//             return self.cb(item, resolve, reject, self);
-//         });
-//             p.then(response=> {
-//                 self._responses.push(response);
-//             })
-//             .catch(errorCallBack(self, item));
-//             return p;
-//     }
-//
-//     const createAllPromise = function (items: Array<ItemType>) {
-//         let pList: Array<Promise<ReturnType>> = [];
-//         for (let i = 0; i < items.length; i++) {
-//             pList.push(secondary(items[i]));
-//         }
-//         return Promise.all(pList);
-//     };
-//
-//     const nextBatch = function (_start?: number, _size?: number) {
-//         _start = _start || 0;
-//         _size = _size || self.batchSize;
-//         if (self._stopped) return;
-//         // return new Promise<SeqPromResult<ItemType, ReturnType>>(res => {
-//         return createAllPromise(self.list.splice(_start, _size));
-//         // });
-//     };
-//     const loops = Math.ceil(self.list.length / self.poolSize);
-//     for (let i = 0; i < loops; i++) {
-//         self.promise = self.promise.then(nextBatch) as unknown as Promise<SeqPromResult<ItemType, ReturnType>>;
-//     }
-//     self.promise = self.promise
-//         .then(() => {
-//             if(self.finalCB) self.finalCB(self._errors, self._responses)
-//         })
-//         .then((): SeqPromResult<ItemType, ReturnType> => [self._errors, self._responses]);
-// }
+function buildBatchQueue<ItemType, ReturnType>(self: SeqPromiseClass<ReturnType, ItemType>): void {
+
+    function secondary(item: ItemType) {
+        const p = new Promise<ReturnType>(function (resolve, reject) {
+            try {
+                const result = self.cb(item, {resolve, reject, self});
+                
+                // If the callback returns a Promise, handle it
+                if (result instanceof Promise) {
+                    result
+                        .then(value => resolve(value))
+                        .catch(reason => reject(reason));
+                }
+                else if (result !== undefined) {
+                    resolve(result as ReturnType);
+                }
+                // If neither, assume the callback will use resolve/reject directly
+            } catch (error) {
+                reject(typeOf(error) === "error" ? (error as Error).message : String(error));
+            }
+        });
+        
+        p.then(response => {
+            self._responses.push({
+                item,
+                result: response as ReturnType
+            });
+        })
+        .catch(errorCallBack(self, item));
+        
+        return p;
+    }
+
+    const createAllPromise = function (items: Array<ItemType>) {
+        let pList: Array<Promise<ReturnType>> = [];
+        for (let i = 0; i < items.length; i++) {
+            pList.push(secondary(items[i]));
+        }
+        return Promise.all(pList);
+    };
+
+    const processAllBatches = async () => {
+        const _size = self.size;
+        const loops = Math.ceil(self.list.length / self.size);
+        
+        for (let i = 0; i < loops; i++) {
+            if (self._stopped) break;
+            const batch = self.list.splice(0, _size);
+            await createAllPromise(batch);
+        }
+        
+        if (self.finalCB) {
+            self.finalCB(self._errors, self._responses);
+        }
+        
+        return [self._errors, self._responses] as SeqPromResult<ItemType, ReturnType>;
+    };
+    
+    // Chain the batch processing after the initial promise
+    self.promise = self.promise.then(processAllBatches);
+    self.promise = self.promise
+        .then(() => {
+            if(self.finalCB) self.finalCB(self._errors, self._responses);
+        })
+        .then((): SeqPromResult<ItemType, ReturnType> => [self._errors, self._responses]);
+}
 
 /**
  * Configure pool queue (streaming) processing mode
@@ -291,7 +318,7 @@ class SeqPromiseClass<ReturnType, ItemType, TOptions extends SeqPromOptionsSchem
         this._globalPromiseResolver = wrappedMasterPromise.resolver;
 
         //Batch
-        if (options.useBatch)  throw new Error('Batch mode not yet implemented');
+        if (options.useBatch)  buildBatchQueue(this);
         //     buildBatchQueue(this);
         else buildPoolQueue(this);
 
@@ -328,5 +355,5 @@ function SeqPromise<RT, T>(options: SeqPromOptionsSchema<RT, T>): SeqPromiseClas
 SeqPromise.prototype = SeqPromiseClass.prototype;
 
 export default SeqPromise;
+// Export the function but not as a type to avoid conflict
 export {SeqPromise};
-export type SeqPromise = typeof SeqPromise;

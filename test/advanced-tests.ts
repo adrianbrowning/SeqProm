@@ -128,7 +128,7 @@ describe('SeqProm Advanced Tests', async () => {
   });
 
   // Performance Tests
-  await it.skip('should perform efficiently with different batch sizes', async () => {
+  await it('should perform efficiently with different batch sizes', async () => {
     const largeList = Array.from({ length: 100 }, (_, i) => i);
 
     // Small batch size
@@ -281,7 +281,7 @@ describe("Processing Order Tests", async () => {
         }
     });
 
-    await it.skip('should process items in batch mode with correct grouping', async () => {
+    await it('should process items in batch mode with correct grouping', async () => {
         const list = Array.from({ length: 20 }, (_, i) => i + 1);
         const processOrder: number[] = [];
         const batchGroups: number[][] = [];
