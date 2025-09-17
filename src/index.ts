@@ -6,39 +6,66 @@ type ItemError<T> = {
     item: T,
     reason: string | Error
 };
+type ItemSuccess<T, RT> = {
+    item: T,
+    result: RT
+};
+
+export type Func_CB<T, RT> = (item: T,
+                              extra: {
+                                  resolve: (value: (RT | PromiseLike<RT>)) => void,
+                                  reject: Rejecter,
+                                  self: SeqPromiseClass<RT, NoInfer<T>>
+                              }) => Promise<RT> | void | RT;
 
 
-type SeqPromOptionsSchema<T, RT = any> = {
+export type Func_ERR<T> = (item: T, reason: ItemError<void>["reason"]) => void;
+
+type SeqPromOptionsSchema<RT, T> = {
     list: ReadonlyArray<T>;
-    cb: (item: T, resolve: Resolver, reject: Rejecter, self?: SeqPromiseClass) => RT;
-    finalCB?: (errors: Array<ItemError<T>>, items: ReadonlyArray<RT>) => any;
-    errorCB?: (item: T, reason: string) => void;
+    cb: Func_CB<T, RT>;
+    finalCB?: (errors: Array<ItemError<T>>, items: ReadonlyArray<ItemSuccess<T, RT>>) => any;
+    errorCB?: Func_ERR<T>;
     useBatch?: boolean;
     autoStart?: boolean;
-    batchSize?: number;
-    poolSize?: number;
+    size?: number;
     context?: any;
 }
 
-type Resolver = (value?: unknown) => void;
-type Rejecter = (reason?: any) => void;
+type Resolver<RT = unknown, T = unknown > = (value?: (SeqPromResult<RT, T> | PromiseLike<SeqPromResult<RT, T>>)) => void;
+type Rejecter = (reason?: string | Error) => void;
 
-function isTrue(value: boolean | string | undefined) {
+/**
+ * Check if a value should be interpreted as "true"
+ * @param value - Value to check
+ * @returns True if the value is boolean true or the string "true" (case insensitive)
+ */
+function isTrue(value: boolean | string | undefined): boolean {
     return (value === true) || (value || '').toLowerCase() === 'true';
 }
 
-function typeOf(e: unknown) {
+/**
+ * Get the type of a value as a string
+ * @param e - Any value to check the type of
+ * @returns The lowercase type name (e.g., 'string', 'array', 'object', 'function')
+ */
+function typeOf(e: unknown): string {
     if (e === null) return 'null';
-    //@ts-expect-error not null anymore
-    return ({}).toString.call(e).match(/\s([a-zA-Z]+)/)[1].toLowerCase();
+    const match = ({}).toString.call(e).match(/\s([a-zA-Z]+)/);
+    return match?.[1]?.toLowerCase() ?? 'unknown';
 }
 
-function trackResponse(this: SeqPromiseClass, response: any): void {
-    this._responses.push(response);
-}
 
-function errorCallBack<ItemT>(self: SeqPromiseClass, item: ItemT): (reason: any) => void {
-    return function (reason: any): void {
+/**
+ * Creates an error handler function for a specific item
+ * @template ItemT - Type of the item being processed
+ * @template ReturnT - Type of the expected return value
+ * @param self - Instance of SeqPromiseClass
+ * @param item - The item being processed when the error occurred
+ * @returns A function that handles errors for the specific item
+ */
+function errorCallBack<ItemT, ReturnT>(self: SeqPromiseClass<ReturnT, ItemT>, item: ItemT): (reason: string | Error) => void {
+    return function (reason: string | Error): void {
         self._errors.push({
             item,
             reason
@@ -49,140 +76,175 @@ function errorCallBack<ItemT>(self: SeqPromiseClass, item: ItemT): (reason: any)
     };
 }
 
-function buildBatchQueue(self: SeqPromiseClass): void {
+/**
+ * Configure batch queue processing mode
+ * @template ItemType - Type of items to process
+ * @template ReturnType - Type of the return values
+ * @param self - Instance of SeqPromiseClass to configure
+ */
+// function buildBatchQueue<ItemType, ReturnType>(self: SeqPromiseClass<ItemType, ReturnType>): void {
+//
+//     function secondary(item: ItemType) {
+//         const p =  new Promise<ReturnType>(function (resolve, reject) {
+//             return self.cb(item, resolve, reject, self);
+//         });
+//             p.then(response=> {
+//                 self._responses.push(response);
+//             })
+//             .catch(errorCallBack(self, item));
+//             return p;
+//     }
+//
+//     const createAllPromise = function (items: Array<ItemType>) {
+//         let pList: Array<Promise<ReturnType>> = [];
+//         for (let i = 0; i < items.length; i++) {
+//             pList.push(secondary(items[i]));
+//         }
+//         return Promise.all(pList);
+//     };
+//
+//     const nextBatch = function (_start?: number, _size?: number) {
+//         _start = _start || 0;
+//         _size = _size || self.batchSize;
+//         if (self._stopped) return;
+//         // return new Promise<SeqPromResult<ItemType, ReturnType>>(res => {
+//         return createAllPromise(self.list.splice(_start, _size));
+//         // });
+//     };
+//     const loops = Math.ceil(self.list.length / self.poolSize);
+//     for (let i = 0; i < loops; i++) {
+//         self.promise = self.promise.then(nextBatch) as unknown as Promise<SeqPromResult<ItemType, ReturnType>>;
+//     }
+//     self.promise = self.promise
+//         .then(() => {
+//             if(self.finalCB) self.finalCB(self._errors, self._responses)
+//         })
+//         .then((): SeqPromResult<ItemType, ReturnType> => [self._errors, self._responses]);
+// }
 
-    function secondary(item: any): Promise<any> {
-        return new Promise(function (resolve, reject): any {
-            return self.cb(item, resolve, reject, self);
-        })
-            .then(trackResponse.bind(self))
-            .catch(errorCallBack(self, item));
-    }
-
-    const createAllPromise = function (items: Array<any>) {
-        let pList: Array<Promise<any>> = [];
-        for (let i = 0; i < items.length; i++) {
-            pList.push(secondary(items[i]));
-        }
-        return Promise.all(pList);
-    };
-
-    const nextBatch = function (_start?: number, _size?: number) {
-        _start = _start || 0;
-        _size = _size || self.batchSize;
-        if (self._stopped) return;
-        return new Promise(res => {
-            return createAllPromise(self.list.splice(_start, _size)).then(function () {
-                res(undefined);
-            });
-        });
-    };
-    const loops = Math.ceil(self.list.length / self.poolSize);
-    for (let i = 0; i < loops; i++) {
-        self.promise = self.promise.then(nextBatch);
-    }
-    self.promise = self.promise
-        .then(() => {
-            if(self.finalCB) self.finalCB(self._errors, self._responses)
-        })
-        .then(() => [self._errors, self._responses]);
-}
-
-function buildPoolQueue(self: SeqPromiseClass) {
-    function _poolGenerator(): Promise<any> | undefined {
+/**
+ * Configure pool queue (streaming) processing mode
+ * @template ItemType - Type of items to process
+ * @template ReturnType - Type of the return values
+ * @param self - Instance of SeqPromiseClass to configure
+ */
+function buildPoolQueue<ItemType, ReturnType>(self: SeqPromiseClass<ReturnType,ItemType>) {
+    function _poolGenerator(): Promise<ReturnType | undefined> | undefined {
         const item = self.list.shift();
         if (!item) return;
         return createCBPromise(self, item)
-            .then(trackResponse.bind(self))
+            .then((response) => self._responses.push({
+                item,
+                result: response as ReturnType
+            }))
             .catch(errorCallBack(self, item))
             .then(_poolGenerator);
     }
 
-    function createCBPromise(self: SeqPromiseClass, item: any) {
-        return new Promise((resolve: Resolver, reject: Rejecter) => {
-            if (self._stopped) return void resolve(null);
-            return self.cb(item, resolve, reject, self);
+    function createCBPromise(self: SeqPromiseClass<ReturnType, ItemType>, item: ItemType) {
+        return new Promise((resolve, reject) => {
+            if (self._stopped) return void resolve(undefined);
+            try {
+                // Call the callback and capture its return value
+                const result = self.cb(item, {
+                    resolve,
+                    reject,
+                    self
+                });
+                // If the callback returns a Promise, handle it
+                if (result instanceof Promise) {
+                         return result
+                             .then(value => resolve(value))
+                            .catch(reason => errorCallBack(self, item)(reason));
+                }
+                else if (result !== undefined) {
+                                 return resolve(result as ReturnType);
+                             }
+                // If not, we assume the callback will use resolve/reject directly
+            } catch (error) {
+                 //errorCallBack(self, item)(typeOf(error) === "error" ? (error as Error).message : String(error) );
+                 reject(typeOf(error) === "error" ? (error as Error).message : String(error));
+            }
+            return;
+            // return self.cb(item, {resolve, reject, self});
         });
     }
 
     self.promise =
         self.promise
             .then(function () {
-                const pool: Array<Promise<any> | undefined> = [];
+                const pool: Array<Promise<ReturnType | undefined> | undefined> = [];
 
-                for (let i = 0; i < self.poolSize; i++) {
+                for (let i = 0; i < self.size; i++) {
                     pool.push(_poolGenerator());
                 }
 
                 return Promise.all(pool);
             })
             .then(() => {
-                if(self.finalCB) self.finalCB(self._errors, self._responses)
+                if (self.finalCB) self.finalCB(self._errors, self._responses)
             })
-            .then(() => [self._errors, self._responses]);
+            .then((): SeqPromResult<ItemType, ReturnType> => [self._errors, self._responses]);
 }
 
-type MasterPromise = {
-    resolver: Resolver;
-    promise: Promise<any>;
+type SeqPromResult<T, RT> = [Array<ItemError<T>>, Array<ItemSuccess<T, RT>>];
+
+type MasterPromise<T = unknown, RT = unknown> = {
+    resolver: Resolver<T, RT>;
+    promise: Promise<SeqPromResult<T, RT>>;
 }
 
-function createMasterPromise(): MasterPromise {
-    let promise: Promise<any>;
-    let resolver: Resolver = null as unknown as Resolver;
+/**
+ * Creates a deferred promise with externally accessible resolver
+ * @template ItemType - Type of items being processed
+ * @template ReturnType - Type of return values
+ * @returns Object containing both the promise and its resolver
+ */
+function createMasterPromise<ItemType, ReturnType>(): MasterPromise<ItemType, ReturnType> {
+    let promise: Promise<SeqPromResult<ItemType, ReturnType>>;
+    let resolver: Resolver<ItemType, ReturnType> = null as unknown as Resolver<ItemType, ReturnType>;
 
-    promise = new Promise(resolve => {
-        resolver = resolve;
+
+    promise = new Promise<SeqPromResult<ItemType, ReturnType>>(resolve => {
+        resolver = resolve as Resolver<ItemType, ReturnType>;
     });
+
     return {
         resolver,
         promise,
     };
 }
 
-class SeqPromiseClass<ItemType = any> {
+class SeqPromiseClass<ReturnType, ItemType, TOptions extends SeqPromOptionsSchema<ReturnType, ItemType> = SeqPromOptionsSchema<ReturnType, ItemType>> {
     list: Array<ItemType>;
-    cb: SeqPromOptionsSchema<ItemType>["cb"];
-    finalCB: SeqPromOptionsSchema<ItemType>["finalCB"];
-    errorCB: SeqPromOptionsSchema<ItemType>["errorCB"];
+    cb: TOptions["cb"];
+    finalCB: TOptions["finalCB"];
+    errorCB: TOptions["errorCB"];
     useBatch: boolean;
-    batchSize: number;
-    poolSize: number;
-    promise: Promise<any>;
-    _globalPromiseResolver: Resolver;
+    size: number;
+    promise: Promise<SeqPromResult<ItemType, ReturnType>>;
+    _globalPromiseResolver: Resolver<ItemType, ReturnType>;
     _stopped: boolean;
     _errors: Array<ItemError<ItemType>>;
-    _responses: any[];
+    _responses: Array<ItemSuccess<ItemType, ReturnType>>;
 
     /**
-     * SeqPromise the actual object is created here, allowing us to 'new' an object without calling 'new'
-     * @param {Object} options - The options for setting the chain
-     * @param {number} options.poolSize - The size of "simulated" thread pool
-     * @param {boolean} options.autoStart - Will start the processing as soon as initialisation is complete
-     * @param {*[]} options.list - The list of items to iterate over asynchronously
-     * @param {boolean} options.useBatch - Switches from Stream mode, to batch
-     * @param {number} options.batchSize - The size of each batch
-     * @param {Object} options.context - Context to run functions in
-     * @param {cb} options.cb - A function that returns a promise
-     * @param {finalCB} options.finalCB - A function that that will be called once all done
-     * @param {errorCB} options.errorCB - A function that returns a promise
+     * SeqPromise class processes items sequentially using promises
+     * @template ItemType - Type of items in the list to process
+     * @template ReturnType - Type returned by the callback
      *
-     * @callback cb
-     * @param {*} Item - Item from the list
-     * @param {*} Resolve - Resolve function for successful call
-     * @param {*} Reject - Reject function for failed call
-     * @param {*} Self - Item from the list
-     *
-     * @callback finalCB
-     * @param {*[]} Errors - List of failed items
-     * @param {*[]} Responses - List of completed items
-     *
-     * @callback errorCB
-     * @param {*} Item - Item that failed
-     * @param {*} Reason - Reason for failure, passed from reject
+     * @param options - The options for setting the chain
+     * @param options.list - The list of items to iterate through asynchronously
+     * @param options.cb - Function called for each item, returning a result or promise
+     * @param options.size - Either - The size of "simulated" thread pool (default: 1)\n - size of the batch (default: 1)
+     * @param options.autoStart - Will start processing immediately if true (default: false)
+     * @param options.useBatch - Switches from Stream mode to batch (default: false)
+     * @param options.context - Context to run functions in (this binding)
+     * @param options.finalCB - Function called when all processing is complete
+     * @param options.errorCB - Function called when an error occurs processing an item
      */
 
-    constructor(options: SeqPromOptionsSchema<ItemType>) {
+    constructor(options: SeqPromOptionsSchema<ReturnType, ItemType>) {
 
         if (typeOf(options.list) !== 'array') {
             throw new Error(`Expecting list to be type Array, found type ${typeOf(options.list)}`);
@@ -194,14 +256,16 @@ class SeqPromiseClass<ItemType = any> {
 
         this.list = options.list.slice() as Array<ItemType>;
         this.cb = options.cb;
-        this.finalCB = options.finalCB || function (): void {};
-        this.errorCB = options.errorCB || function (): void {};
+        this.finalCB = options.finalCB || function (): void {
+        };
+        this.errorCB = options.errorCB || function (): void {
+        };
         this.useBatch = isTrue(options.useBatch);
-        this.batchSize = options.batchSize || 1;
-        this.poolSize = options.poolSize || 1;
+        this.size = options.size || 1;
 
-        this.promise = Promise.resolve();
-        this._globalPromiseResolver = () => {};
+        this.promise = Promise.resolve() as unknown as Promise<SeqPromResult<ItemType, ReturnType>>;
+        this._globalPromiseResolver = () => {
+        };
         this._stopped = false;
         this._errors = [];
         this._responses = [];
@@ -210,26 +274,26 @@ class SeqPromiseClass<ItemType = any> {
             this.cb = options.cb.bind(options.context);
             this.finalCB = options.finalCB
                 ? options.finalCB.bind(options.context)
-                : function (): void {};
+                : function (): void {
+                };
             this.errorCB = options.errorCB
                 ? options.errorCB.bind(options.context)
-                : function (): void {};
+                : function (): void {
+                };
         }
 
-        if (options.poolSize && options.poolSize >= options.list.length) {
-            this.poolSize = options.list.length;
+        if (!options.useBatch && (options.size && options.size >= options.list.length)) {
+            this.size = options.list.length;
         }
 
-        let wrappedMasterPromise = createMasterPromise();
+        let wrappedMasterPromise = createMasterPromise<ItemType, ReturnType>();
         this.promise = wrappedMasterPromise.promise;
         this._globalPromiseResolver = wrappedMasterPromise.resolver;
 
         //Batch
-        if (options.useBatch) {
-            buildBatchQueue(this);
-        } else {
-            buildPoolQueue(this);
-        }
+        if (options.useBatch)  throw new Error('Batch mode not yet implemented');
+        //     buildBatchQueue(this);
+        else buildPoolQueue(this);
 
         if (isTrue(options.autoStart)) {
             this._globalPromiseResolver();
@@ -244,13 +308,20 @@ class SeqPromiseClass<ItemType = any> {
 
     // noinspection JSUnusedGlobalSymbols
     stop() {
-        this._stopped = !0;
+        this._stopped = true;
     }
 }
 
-// Factory function
-function SeqPromise<T>(options: SeqPromOptionsSchema<T>): SeqPromiseClass {
-    return new SeqPromiseClass(options);
+/**
+ * Factory function to create a SeqPromise instance
+ * @template T - Type of items in the list to process
+ * @template RT - Type returned by the callback (default: any)
+ *
+ * @param options - Configuration options for sequential processing
+ * @returns A configured SeqPromiseClass instance that can be started
+ */
+function SeqPromise<RT, T>(options: SeqPromOptionsSchema<RT, T>): SeqPromiseClass<RT, T> {
+    return new SeqPromiseClass<RT, T>(options);
 }
 
 // trick borrowed from jQuery so we don't have to use the 'new' keyword

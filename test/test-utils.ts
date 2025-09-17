@@ -6,15 +6,15 @@ import assert from 'node:assert';
 /**
  * Creates a mock function with call tracking
  */
-export function mockFn<T extends (...args: any[]) => any>(impl?: T): T & { mock: { calls: any[][] }, mockReset: () => void } {
-  const calls: any[][] = [];
+export function mockFn<T extends (...args: Array<any>) => any>(impl?: T): T & { mock: { calls: Array<Array<any>> }, mockReset: () => void } {
+  const calls: Array<Array<any>> = [];
 
   const fn = impl ?
-    ((...args: any[]) => {
+    ((...args: Array<any>) => {
       calls.push(args);
       return impl(...args);
     }) :
-    ((...args: any[]) => {
+    ((...args: Array<any>) => {
       calls.push(args);
       return undefined;
     });
