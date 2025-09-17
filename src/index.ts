@@ -32,7 +32,7 @@ type SeqPromOptionsSchema<RT, T> = {
     context?: any;
 }
 
-type Resolver<RT = unknown, T = unknown > = (value?: (SeqPromResult<RT, T> | PromiseLike<SeqPromResult<RT, T>>)) => void;
+type Resolver<T = unknown, RT = unknown > = (value?: (SeqPromResult<T, RT> | PromiseLike<SeqPromResult<T, RT>>)) => void;
 type Rejecter = (reason?: string | Error) => void;
 
 /**
