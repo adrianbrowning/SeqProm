@@ -1,6 +1,6 @@
 {
   "name": "seq-prom",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "A small library to allow for sequential operations on an array using Promises",
   "main": "./dist/index.cjs",
   "types": "./dist/index.d.cts",

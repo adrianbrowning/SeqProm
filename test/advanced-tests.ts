@@ -219,6 +219,69 @@ describe('SeqProm Advanced Tests', async () => {
     assert.deepStrictEqual(results, ['a1', 'a2', 'b1', 'b2', 'c1', 'c2']);
     assert.deepStrictEqual(responses.map(r => r.item), ['a', 'b', 'c']);
   });
+
+  await it("Fetch simulated test", async () => {
+
+// Advanced example with complex typed Promise chains
+
+        interface UserData {
+            id: number;
+            name: string;
+            email: string;
+        }
+
+// Process a list of user IDs with complex Promise handling
+        SeqProm({
+            list: [101, 102, 103],
+            size: 2, // Process 2 at a time
+            cb: async (userId) => {
+                // Return a typed Promise chain
+                return fetchUserById(userId)
+                    .then(userData => {
+                        // Transform the data into our ApiResponse format
+                        return {
+                            data: userData,
+                            timestamp: Date.now(),
+                            success: true
+                        };
+                    })
+                    .catch(error => {
+                        // Handle errors in the Promise chain
+                        console.error(`Failed to fetch user ${userId}:`, error);
+                        throw new Error(`User fetch failed: ${error.message}`);
+                    });
+            },
+            finalCB(_, responses) {
+                // Type-safe access to the complex response structure
+                responses.forEach(res => {
+                    const userData = res.result.data;
+                    console.log(
+                        `User ${userData.name} (${userData.email}) fetched at ${new Date(res.result.timestamp).toLocaleString()}`
+                    );
+                });
+            }
+        });
+
+// Mock API function
+        function fetchUserById(id: number): Promise<UserData> {
+            return new Promise((resolve, reject) => {
+                // Simulate API call
+                setTimeout(() => {
+                    if (id === 102) {
+                        reject(new Error("User not found"));
+                        return;
+                    }
+
+                    resolve({
+                        id,
+                        name: `User ${id}`,
+                        email: `user${id}@example.com`
+                    });
+                }, 200);
+            });
+        }
+  }
+  )
 });
 
 describe("Processing Order Tests", async () => {
