@@ -17,11 +17,14 @@ pnpm add seq-prom
 |-----------|----------|--------------------------------------------------------------------------------------------------|---------|-----------|
 | list | Array<T> | List of items to iterate through |  | Yes |
 | cb | Function | Type-safe callback function for processing each item |  | Yes |
-| size | Integer | Size of the batch or pool (number of concurrent operations) | 1 | No |
+| size | Positive integer | Size of the batch or pool (number of concurrent operations) | 1 | No |
 | errorCB | Function | Called when there is an error, with the item and reason for error |  | No |
 | finalCB | Function | Called when all is done. Passes in a list of errors, and any items, passed to the resolve method |  | No |
 | useBatch | Boolean | Process items in batches of size `size` | false | No |
 | autoStart | Boolean | Instead of having to call .start() will do this for you | false | No |
+
+`size` must be a finite positive integer. Zero, negative, fractional, `NaN`, and
+infinite values throw a `RangeError` when the SeqProm instance is created.
 
 ## Core Concepts
 
@@ -33,7 +36,7 @@ SeqProm supports two processing modes for handling collections of items:
 
 In pool mode, SeqProm creates a "pool" of concurrent promises, processing items as previous ones complete. This is ideal for handling a large number of items with controlled concurrency.
 
-- Set `poolSize` to control how many items process concurrently
+- Set `size` to control how many items process concurrently
 - Items start processing immediately up to the pool size limit
 - As each item completes, the next waiting item begins processing
 - Order of completion depends on how long each item takes to process
@@ -47,6 +50,17 @@ In batch mode, SeqProm processes items in discrete batches of a specific size. E
 - All items in a batch are processed concurrently
 - The next batch only starts after the current batch fully completes
 - Useful for operations that should happen in specific groups
+
+Rejected or thrown item operations are collected in `errors`; they do not stop
+the remaining pool or later batches. Both `errors` and successful `responses`
+are stored in completion order, not input order.
+
+### Stopping
+
+Calling `self.stop()` prevents queued items from starting. Operations that have
+already started are allowed to settle, after which `finalCB` runs exactly once
+with the partial errors and responses. Items that never started do not appear in
+either collection.
 
 ## Usage Examples
 
@@ -101,7 +115,7 @@ import SeqProm from "seq-prom";
 
 // Using explicit resolve/reject callbacks
 // Type parameters are needed for this style
-let seqProm = SeqProm<number, void>({
+const seqProm = SeqProm<void, number>({
   list: [1, 2, 3],
   cb(item, {resolve, reject}) {
     console.log(`Item [${item}] called!`);
@@ -109,7 +123,7 @@ let seqProm = SeqProm<number, void>({
       if (item === 3) {
         return reject("Not sure about this!");
       } else {
-        return resolve();
+        return resolve(undefined);
       }
     }, item * 1000);
   },
@@ -264,7 +278,7 @@ SeqProm({
 import SeqProm from "seq-prom";
 
 // Using the promise directly with typed response
-SeqProm<number, string>({
+SeqProm<string, number>({
   list: [1, 2, 3],
   autoStart: true,
   cb(item, {resolve, reject}) {
@@ -306,6 +320,23 @@ SeqProm<ReturnType, ItemType>({ ... })
 
 - `ReturnType` - The type of value returned by your callback function
 - `ItemType` - The type of items in your input list
+
+### CommonJS
+
+The CommonJS entry is directly callable and also exposes `default` and
+`SeqPromise` properties:
+
+```javascript
+const SeqProm = require('seq-prom');
+
+SeqProm({
+  list: [1, 2, 3],
+  autoStart: true,
+  cb: item => item * 2
+}).promise.then(([errors, responses]) => {
+  console.log(errors, responses);
+});
+```
 
 ### Example with Complex Types
 

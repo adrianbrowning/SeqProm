@@ -5,8 +5,6 @@ import { describe, it, mock, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import SeqProm from '../src/index.ts';
 import type {Func_CB, Func_ERR} from '../src/index.ts';
-import {typeOf} from "./test-utils.ts";
-// import { /*mockFn*/, expect } from './test-utils.ts';
 
 describe('SeqProm Basic Tests', async () => {
 
@@ -28,27 +26,25 @@ describe('SeqProm Basic Tests', async () => {
     await it('All items resolve - List', async () => {
         const cb = mock.fn<Func_CB<number, number>>((i, r) => r.resolve(i))
 
-            await SeqProm<number, number>({
-                list: [1, 2, 3],
-                cb,
-                errorCB,
-                finalCB() {
-                    assert.strictEqual(cb.mock.calls.length, 3);
-                     assert.strictEqual(errorCB.mock.calls.length, 0);
-                },
-            }).start().promise;
+        await SeqProm<number, number>({
+            list: [1, 2, 3],
+            cb,
+            errorCB,
+        }).start().promise;
+
+        assert.strictEqual(cb.mock.calls.length, 3);
+        assert.strictEqual(errorCB.mock.calls.length, 0);
     });
     await it('All items await - List', async () => {
         const cb = mock.fn<Func_CB<number, number>>(async (i ) => i);
         await SeqProm({
-                list: [1, 2, 3],
-                 cb,
-                errorCB,
-                finalCB() {
-                    assert.strictEqual(cb.mock.calls.length, 3);
-                    assert.strictEqual(errorCB.mock.calls.length, 0);
-                },
-            }).start().promise;
+            list: [1, 2, 3],
+            cb,
+            errorCB,
+        }).start().promise;
+
+        assert.strictEqual(cb.mock.calls.length, 3);
+        assert.strictEqual(errorCB.mock.calls.length, 0);
     });
 
     await it('All items return - List', async () => {
@@ -58,12 +54,11 @@ describe('SeqProm Basic Tests', async () => {
         list: [1, 2, 3],
         cb,
         errorCB,
-        finalCB() {
-            assert.strictEqual(cb.mock.calls.length, 3);
-            assert.strictEqual(errorCB.mock.calls.length, 0);
-        },
-          autoStart: true
+        autoStart: true
       }).promise;
+
+      assert.strictEqual(cb.mock.calls.length, 3);
+      assert.strictEqual(errorCB.mock.calls.length, 0);
   });
 
   await it('All items resolve - Batch', async () => {
@@ -74,12 +69,11 @@ describe('SeqProm Basic Tests', async () => {
         useBatch: true,
         cb,
         errorCB,
-        finalCB() {
-            assert.strictEqual(cb.mock.calls.length, 9);
-            assert.strictEqual(errorCB.mock.calls.length, 0);
-        },
-          autoStart: true
+        autoStart: true
       }).promise;
+
+      assert.strictEqual(cb.mock.calls.length, 9);
+      assert.strictEqual(errorCB.mock.calls.length, 0);
   });
 
   await it('All items resolve - Streaming', async () => {
@@ -89,13 +83,11 @@ describe('SeqProm Basic Tests', async () => {
         size: 3,
         cb,
         errorCB,
-        finalCB() {
-
-            assert.strictEqual(cb.mock.calls.length, 15);
-            assert.strictEqual(errorCB.mock.calls.length, 0);
-        },
-          autoStart: true
+        autoStart: true
       }).promise;
+
+      assert.strictEqual(cb.mock.calls.length, 15);
+      assert.strictEqual(errorCB.mock.calls.length, 0);
   });
 
   await it('One item fail resolve', async () => {
@@ -198,9 +190,8 @@ describe('SeqProm Basic Tests', async () => {
   await it('Data pass through - batch', async () => {
 
       const errorCB = mock.fn<Func_ERR<number>>();
-      
-      try {
-          await SeqProm({
+
+      await SeqProm({
             list: [1, 2, 3, 1, 2, 3, 1, 2, 3],
             size: 3,
             useBatch: true,
@@ -216,12 +207,9 @@ describe('SeqProm Basic Tests', async () => {
               assert.strictEqual(responses.length, 6);
             },
             autoStart: true
-          }).promise;
-      } catch (e) {
-          // The batch implementation might throw error in some cases, which is acceptable
-          // Just ensure errorCB was called the correct number of times
-          assert.ok(errorCB.mock.calls.length > 0);
-      }
+      }).promise;
+
+      assert.strictEqual(errorCB.mock.calls.length, 3);
   });
 
   await it('Data pass through - streaming', async () => {
@@ -284,8 +272,6 @@ describe('SeqProm Basic Tests', async () => {
         cb,
       }).promise;
 
-      console.log(errors,
-      responses)
       assert.strictEqual(errors.length, 1);
       assert.strictEqual(responses.length, 2);
       assert.strictEqual(cb.mock.calls.length, 3);
@@ -302,10 +288,10 @@ describe('SeqProm Basic Tests', async () => {
         finalCB,
       }).start().promise;
 
-      assert.equal(typeOf(rP), "promise");
+      assert.ok(rP instanceof Promise);
 
       const r = await rP;
-      assert.equal(typeOf(r), "array");
+      assert.ok(Array.isArray(r));
       assert.equal(r.length, 2);
       assert.equal(r[0].length, 0);
       assert.equal(r[1].length, 3);
@@ -327,18 +313,17 @@ describe('SeqProm Basic Tests', async () => {
           useBatch: true
       }).start().promise;
 
-      assert.equal(typeOf(rP), "promise");
+      assert.ok(rP instanceof Promise);
 
       const r = await rP;
-      assert.equal(typeOf(r), "array");
+      assert.ok(Array.isArray(r));
       assert.equal(r.length, 2);
       assert.equal(r[0].length, 0);
       assert.equal(r[1].length, 3);
 
       assert.strictEqual(cb.mock.calls.length, 3);
       assert.strictEqual(errorCB.mock.calls.length, 0);
-      // In batch mode, finalCB might be called more than once depending on implementation
-      assert.ok(finalCB.mock.calls.length > 0, 'finalCB should be called at least once');
+      assert.strictEqual(finalCB.mock.calls.length, 1);
   });
 
 

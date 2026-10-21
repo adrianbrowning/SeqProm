@@ -5,15 +5,14 @@ import { describe, it, mock } from 'node:test';
 import assert from 'node:assert';
 import SeqProm from '../src/index.ts';
 import type {Func_CB, Func_ERR} from '../src/index.ts';
-import {timeExecution, typeOf} from './test-utils.ts';
 
 describe('SeqProm Advanced Tests', async () => {
   // Type Safety Tests
   await it('should work with generic type parameters', async () => {
-    interface TestItem {
+    type TestItem = {
       id: number;
       value: string;
-    }
+    };
 
     const items: TestItem[] = [
       { id: 1, value: 'one' },
@@ -90,7 +89,7 @@ describe('SeqProm Advanced Tests', async () => {
         assert.strictEqual(errorCB.mock.calls.length, 1);
         assert.strictEqual(errors.length, 1);
         assert.strictEqual(errors[0].item, 2);
-        assert.strictEqual(typeOf(errors[0].reason), "string");
+        assert.strictEqual(typeof errors[0].reason, "string");
         assert.strictEqual(errors[0].reason , 'Intentional error');
         assert.deepStrictEqual(responses.map(r => r.result), [1, 3]);
       },
@@ -127,39 +126,45 @@ describe('SeqProm Advanced Tests', async () => {
     }
   });
 
-  // Performance Tests
-  await it('should perform efficiently with different batch sizes', async () => {
-    const largeList = Array.from({ length: 100 }, (_, i) => i);
-
-    // Small batch size
-    const timeSmallBatch = await timeExecution(async () => {
-      await SeqProm({
-        list: largeList,
-        size: 1,
-        useBatch: true,
-        cb(item, {resolve}) {
-          setTimeout(() => resolve(item), 1);
-        },
-        autoStart: true
-      }).promise;
+  await it('should wait for every item in a batch before starting the next batch', async () => {
+    const started: number[] = [];
+    const resolvers = new Map<number, (value: number) => void>();
+    let signalFirstBatchStarted = () => {};
+    let signalSecondBatchStarted = () => {};
+    const firstBatchStarted = new Promise<void>(resolve => {
+      signalFirstBatchStarted = resolve;
+    });
+    const secondBatchStarted = new Promise<void>(resolve => {
+      signalSecondBatchStarted = resolve;
     });
 
-    // Large batch size
-    const timeLargeBatch = await timeExecution(async () => {
-      await SeqProm({
-        list: largeList.slice(),
-        size: 20,
-        useBatch: true,
-        cb(item, {resolve}) {
-          setTimeout(() => resolve(item), 1);
-        },
-        autoStart: true
-      }).promise;
-    });
+    const processing = SeqProm<number, number>({
+      list: [1, 2, 3, 4],
+      size: 2,
+      useBatch: true,
+      cb(item, {resolve}) {
+        started.push(item);
+        resolvers.set(item, resolve);
+        if (started.length === 2) signalFirstBatchStarted();
+        if (started.length === 4) signalSecondBatchStarted();
+      },
+      autoStart: true
+    }).promise;
 
-    console.log(`Small batch: ${timeSmallBatch}ms, Large batch: ${timeLargeBatch}ms`);
-    // Large batch should be faster than small batch
-    assert.ok(timeLargeBatch < timeSmallBatch, `Expected large batch (${timeLargeBatch}ms) to be faster than small batch (${timeSmallBatch}ms)`);
+    await firstBatchStarted;
+    assert.deepStrictEqual(started, [1, 2]);
+
+    resolvers.get(1)?.(1);
+    await Promise.resolve();
+    assert.deepStrictEqual(started, [1, 2]);
+
+    resolvers.get(2)?.(2);
+    await secondBatchStarted;
+    assert.deepStrictEqual(started, [1, 2, 3, 4]);
+
+    resolvers.get(3)?.(3);
+    resolvers.get(4)?.(4);
+    await processing;
   });
 
   // Advanced Use Cases
@@ -224,16 +229,17 @@ describe('SeqProm Advanced Tests', async () => {
 
 // Advanced example with complex typed Promise chains
 
-        interface UserData {
+        type UserData = {
             id: number;
             name: string;
             email: string;
-        }
+        };
 
 // Process a list of user IDs with complex Promise handling
-        SeqProm({
+        const [errors, responses] = await SeqProm({
             list: [101, 102, 103],
             size: 2, // Process 2 at a time
+            autoStart: true,
             cb: async (userId) => {
                 // Return a typed Promise chain
                 return fetchUserById(userId)
@@ -246,21 +252,15 @@ describe('SeqProm Advanced Tests', async () => {
                         };
                     })
                     .catch(error => {
-                        // Handle errors in the Promise chain
-                        console.error(`Failed to fetch user ${userId}:`, error);
                         throw new Error(`User fetch failed: ${error.message}`);
                     });
             },
-            finalCB(_, responses) {
-                // Type-safe access to the complex response structure
-                responses.forEach(res => {
-                    const userData = res.result.data;
-                    console.log(
-                        `User ${userData.name} (${userData.email}) fetched at ${new Date(res.result.timestamp).toLocaleString()}`
-                    );
-                });
-            }
-        });
+        }).promise;
+
+        assert.strictEqual(errors.length, 1);
+        assert.strictEqual(errors[0].item, 102);
+        assert.match(String(errors[0].reason), /User fetch failed: User not found/);
+        assert.deepStrictEqual(responses.map(({item}) => item), [101, 103]);
 
 // Mock API function
         function fetchUserById(id: number): Promise<UserData> {
@@ -277,7 +277,7 @@ describe('SeqProm Advanced Tests', async () => {
                         name: `User ${id}`,
                         email: `user${id}@example.com`
                     });
-                }, 200);
+                }, 1);
             });
         }
   }

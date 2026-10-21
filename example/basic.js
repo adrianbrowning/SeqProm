@@ -1,11 +1,8 @@
-/**
- * Created by adrianbrowning on 10/11/2016.
- */
-const SeqProm = require('seq-prom');
+import SeqProm from 'seq-prom';
 
-let seqProm = SeqProm({
+const seqProm = SeqProm({
   list: [1, 2, 3],
-  cb  (item, resolve, reject) {
+  cb(item, {resolve, reject}) {
     console.log(`Item [${item}] called!`);
     setTimeout(function () {
       if (item === 3) {
@@ -13,7 +10,7 @@ let seqProm = SeqProm({
       } else {
         return resolve();
       }
-    }, item * 1000);
+    }, item);
   },
   errorCB (item, reason) {
     console.error(`Item [${item}] failed with error: ${reason}`);
@@ -24,4 +21,6 @@ let seqProm = SeqProm({
 });
 
 seqProm.start();
+
+await seqProm.promise;
 
