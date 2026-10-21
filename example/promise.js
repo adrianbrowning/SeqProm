@@ -1,12 +1,9 @@
-/**
- * Created by adrianbrowning on 15/02/2018.
- */
-const SeqProm = require('seq-prom');
+import SeqProm from 'seq-prom';
 
-SeqProm({
+const [errors, responses] = await SeqProm({
   list     : [1, 2, 3],
   autoStart: true,
-  cb(item, resolve, reject) {
+  cb(item, {resolve, reject}) {
     console.log(`Item [${item}] called!`);
     setTimeout(function() {
       if (item === 3) {
@@ -14,7 +11,7 @@ SeqProm({
       } else {
         return resolve(item);
       }
-    }, item * 1000);
+    }, item);
   },
   errorCB(item, reason) {
     console.error(`Item [${item}] failed with error: ${reason}`);
@@ -22,6 +19,6 @@ SeqProm({
   finalCB(errors, response) {
     console.log('All done!');
   },
-})
-    .promise
-    .then(([errors, responses]) => console.log(errors, responses));
+}).promise;
+
+console.log(errors, responses);
